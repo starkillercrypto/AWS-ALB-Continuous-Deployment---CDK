@@ -43,12 +43,9 @@ def lambda_handler(event, context):
   print(event)
   step=event['step']
   img_name=event['img_project_name']
-  alb_name=event['alb_project_name']
-
   #get instance id of imaging server (if the terminated one has not disappears remove the tags)
   response = ec2_client.describe_instances(Filters=[
-        {'Name': 'tag:Project','Values':[img_name]},
-        {'Name': 'tag:Type','Values':['imaging_server']}
+        {'Name': 'tag:Name','Values':['releaseCluster/releaseAsg']}
       ])
   
   #print(response)
@@ -95,6 +92,7 @@ def lambda_handler(event, context):
         'commands': [
           "echo "+date_str+"\" yum update by systems manager\" >>/root/message.txt",
           "cat /root/message.txt",
+          "docker logs -f test > output.log"
           "yum -y update",
           "sleep 30",
           "shutdown -h +1;echo $?"
@@ -187,32 +185,7 @@ def lambda_handler(event, context):
       event['status']="Retry"
       
   if step==5:
-    # update CloudFormation Stacks
-    print("Begin Step 5")
 
-    event['status']="Finished"
-    
-    #update ALB CF Stack with new AMI
-    ami_id=event['ami_id']
-    
-    #stack_name=event['cf_stack_name']
-    stack_name=alb_name+"-alb"
-    cf_client = boto3.client('cloudformation')
-    
-    response = cf_client.update_stack(
-      StackName=stack_name,
-      UsePreviousTemplate=True,
-      Capabilities=['CAPABILITY_NAMED_IAM']
-    )
-    print(response)
-    
-    # update imaging server CF Stack
-    response = cf_client.update_stack(
-      StackName=img_name+"-ec2",
-      UsePreviousTemplate=True,
-      Capabilities=['CAPABILITY_NAMED_IAM']
-    )
-    print(response)
     
     # update ami in config rule
     response = config_client.put_config_rule(
